@@ -26,10 +26,6 @@ export default defineConfig({
   workers: process.env.CI ? '50%' : 1,
   reporter: [
     ['html', { outputFolder: './tests/reports/html', open: 'never' }],
-    ['junit', { outputFile: './tests/reports/junit/junit.xml' }],
-    ['allure-playwright', { outputFolder: './tests/reports/allure-results' }],
-    ['list'],
-    ['json', { outputFile: './tests/reports/json/test-results.json' }],
   ],
 
   /* Timeout configuration */
