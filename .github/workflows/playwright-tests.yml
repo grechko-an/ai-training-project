@@ -1,0 +1,338 @@
+# ===========================================
+# Playwright Test Suite - Full CI Pipeline
+# ===========================================
+# Runs the complete Playwright test suite across multiple browsers
+# Triggered on push/PR to main and develop branches
+# ===========================================
+
+name: Playwright Tests
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+  # Allow manual trigger from GitHub Actions tab
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Test environment (dev, staging, prod)'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      browser:
+        description: 'Browser to run tests on (all, chromium, firefox, webkit)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - chromium
+          - firefox
+          - webkit
+
+# ===========================================
+# Environment Variables
+# ===========================================
+env:
+  CI: 'true'
+  NODE_VERSION: '20'
+  TEST_ENV: ${{ github.event.inputs.environment || 'dev' }}
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL || '' }}
+
+# ===========================================
+# Concurrency Control
+# ===========================================
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# ===========================================
+# Jobs
+# ===========================================
+jobs:
+  # --------------------------------------------------
+  # Job 1: Lint and Type Check
+  # --------------------------------------------------
+  lint-and-typecheck:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript type check
+        run: npx tsc --noEmit
+
+      - name: Run linter
+        run: npm run lint
+        continue-on-error: true
+
+  # --------------------------------------------------
+  # Job 2: Run Playwright Tests (Matrix Strategy)
+  # --------------------------------------------------
+  test:
+    name: Tests (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    needs: lint-and-typecheck
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        browser:
+          - chromium
+          - firefox
+          - webkit
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install ${{ matrix.browser }} --with-deps
+
+      - name: Create test results directories
+        run: |
+          mkdir -p test-results/screenshots
+          mkdir -p test-results/videos
+          mkdir -p test-results/traces
+          mkdir -p tests/reports/allure-results
+          mkdir -p tests/reports/html
+          mkdir -p tests/reports/junit
+          mkdir -p tests/reports/json
+
+      - name: Run Playwright tests (${{ matrix.browser }})
+        id: run-tests
+        run: |
+          npx playwright test \
+            --project=${{ matrix.browser }} \
+            --reporter=html,junit,allure-playwright,list,json
+        continue-on-error: true
+        env:
+          CI: 'true'
+          ENV: ${{ env.TEST_ENV }}
+
+      - name: Generate Allure report
+        if: always()
+        run: |
+          npx allure generate ./tests/reports/allure-results \
+            --clean \
+            -o ./tests/reports/allure-report \
+            || echo "Allure report generation skipped (no results)"
+        continue-on-error: true
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: html-report-${{ matrix.browser }}
+          path: tests/reports/html/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-report-${{ matrix.browser }}
+          path: tests/reports/junit/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload Allure report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report-${{ matrix.browser }}
+          path: tests/reports/allure-report/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-${{ matrix.browser }}
+          path: tests/reports/allure-results/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload JSON report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: json-report-${{ matrix.browser }}
+          path: tests/reports/json/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload test results (screenshots, videos, traces)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.browser }}
+          path: test-results/
+          retention-days: 30
+          if-no-files-found: warn
+
+  # --------------------------------------------------
+  # Job 3: Aggregate Reports
+  # --------------------------------------------------
+  aggregate-reports:
+    name: Aggregate Reports
+    runs-on: ubuntu-latest
+    needs: test
+    if: always()
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all Allure results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: allure-results-*
+          path: ./downloaded-allure-results/
+          merge-multiple: true
+
+      - name: Download all HTML reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: html-report-*
+          path: ./downloaded-html-reports/
+          merge-multiple: true
+
+      - name: Download all JUnit reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: junit-report-*
+          path: ./downloaded-junit-reports/
+          merge-multiple: true
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Allure CLI
+        run: npm install -g allure-commandline || echo "Using npx allure"
+
+      - name: Generate aggregated Allure report
+        run: |
+          mkdir -p ./aggregated-reports/allure-report
+          if [ -d "./downloaded-allure-results" ] && [ "$(ls -A ./downloaded-allure-results)" ]; then
+            npx allure generate ./downloaded-allure-results \
+              --clean \
+              -o ./aggregated-reports/allure-report
+            echo "Aggregated Allure report generated"
+          else
+            echo "No Allure results to aggregate"
+          fi
+        continue-on-error: true
+
+      - name: Upload aggregated Allure report
+        uses: actions/upload-artifact@v4
+        with:
+          name: aggregated-allure-report
+          path: ./aggregated-reports/allure-report/
+          retention-days: 30
+          if-no-files-found: warn
+
+  # --------------------------------------------------
+  # Job 4: Slack Notification (on failure)
+  # --------------------------------------------------
+  notify-failure:
+    name: Notify on Failure
+    runs-on: ubuntu-latest
+    needs: [test, aggregate-reports]
+    if: failure()
+    timeout-minutes: 5
+
+    steps:
+      - name: Check Slack webhook configured
+        id: check-slack
+        run: |
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            echo "slack_configured=true" >> $GITHUB_OUTPUT
+          else
+            echo "slack_configured=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Slack notification
+        if: steps.check-slack.outputs.slack_configured == 'true'
+        uses: slackapi/slack-github-action@v1.27.0
+        with:
+          payload: |
+            {
+              "channel": "#test-automation",
+              "username": "Playwright Test Bot",
+              "icon_emoji": ":test_tube:",
+              "attachments": [
+                {
+                  "color": "danger",
+                  "title": "❌ Playwright Tests Failed",
+                  "title_link": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+                  "fields": [
+                    {
+                      "title": "Repository",
+                      "value": "${{ github.repository }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Branch",
+                      "value": "${{ github.ref_name }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Commit",
+                      "value": "${{ github.sha }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Triggered by",
+                      "value": "${{ github.actor }}",
+                      "short": true
+                    }
+                  ],
+                  "footer": "Playwright Test Suite",
+                  "ts": "${{ github.run_id }}"
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

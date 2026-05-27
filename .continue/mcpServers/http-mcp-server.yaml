@@ -1,0 +1,9 @@
+name: "HTTP MCP Server"
+version: "0.0.1"
+schema: "v1"
+mcpServers:
+  - name: "http"
+    command: "npx"
+    args:
+      - "-y"
+      - "@jules-tnk/ts-http-mcp"

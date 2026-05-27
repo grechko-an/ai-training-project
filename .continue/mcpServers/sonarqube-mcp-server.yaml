@@ -1,0 +1,9 @@
+name: SonarQube MCP Server
+version: 0.0.1
+schema: v1
+mcpServers:
+  - name: sonarqube
+    command: "npx"
+    args:
+      - "-y"
+      - "sonarqube-mcp-server@latest"

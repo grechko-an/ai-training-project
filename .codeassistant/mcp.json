@@ -1,0 +1,103 @@
+{
+	"mcpServers": {
+		"filesystem": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [
+				"-y",
+				"@modelcontextprotocol/server-filesystem",
+				"D:\\work\\Work"
+			]
+		},
+		"github": {
+			"type": "stdio",
+			"command": "docker",
+			"args": [
+				"run",
+				"-i",
+				"--rm",
+				"-e",
+				"GITHUB_PERSONAL_ACCESS_TOKEN",
+				"-e",
+				"GITHUB_TOOLSETS",
+				"-e",
+				"GITHUB_READ_ONLY",
+				"ghcr.io/github/github-mcp-server"
+			],
+			"env": {
+				"GITHUB_PERSONAL_ACCESS_TOKEN": "github_pat_token",
+				"GITHUB_TOOLSETS": "",
+				"GITHUB_READ_ONLY": ""
+			},
+			"disabled": false,
+			"alwaysAllow": []
+		},
+		"playwright": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [
+				"-y",
+				"@playwright/mcp@0.0.38"
+			]
+		},
+		"slack": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [
+				"-y",
+				"@modelcontextprotocol/server-slack"
+			],
+			"env": {
+				"SLACK_BOT_TOKEN": "gdsg-nfdnfn-gfmgfmgfmgmmfmgfmgfmg-utrutr",
+				"SLACK_TEAM_ID": "5325256"
+			}
+		},
+		"jira": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [
+				"-y",
+				"@modelcontextprotocol/server-jira"
+			],
+			"env": {
+				"JIRA_BASE_URL": "https://jira.atlassian.com",
+				"JIRA_USERNAME": "jira_username",
+				"JIRA_PASSWORD": "jira_password"
+			}
+		},
+		"allure": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [
+				"-y",
+				"@modelcontextprotocol/server-allure"
+			],
+			"env": {
+				"ALLURE_BASE_URL": "https://allure.atlassian.com",
+				"ALLURE_USERNAME": "allure_username",
+				"ALLURE_PASSWORD": "allure_password"
+			}
+		},
+		"http-server": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [
+				"-y",
+				"@jules-tnk/ts-http-mcp"
+			]
+		},
+		"sonarqube": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [
+				"-y",
+				"@modelcontextprotocol/server-sonarqube"
+			],
+			"env": {
+				"SONARQUBE_BASE_URL": "https://sonarqube.atlassian.com",
+				"SONARQUBE_USERNAME": "sonarqube_username",
+				"SONARQUBE_PASSWORD": "sonarqube_password"
+			}
+		}
+	}
+}

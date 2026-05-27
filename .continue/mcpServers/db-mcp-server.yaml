@@ -1,0 +1,9 @@
+name: "PostgreSQL MCP Server"
+version: "1.0.0"
+mcpServers:
+  - name: "postgresql"
+    command: "npx"
+    args:
+      - "-y"
+      - "@modelcontextprotocol/server-postgres"
+      - "postgresql://username:password@localhost:5432/database_name"

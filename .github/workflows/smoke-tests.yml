@@ -1,0 +1,125 @@
+# ===========================================
+# Smoke Tests - Quick Feedback Pipeline
+# ===========================================
+# Runs only P0/smoke-tagged tests on every commit
+# Fast execution with chromium only for quick feedback
+# ===========================================
+
+name: Smoke Tests
+
+on:
+  push:
+    branches-ignore:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+# ===========================================
+# Environment Variables
+# ===========================================
+env:
+  CI: 'true'
+  NODE_VERSION: '20'
+  TEST_ENV: 'dev'
+
+# ===========================================
+# Concurrency Control
+# ===========================================
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# ===========================================
+# Jobs
+# ===========================================
+jobs:
+  # --------------------------------------------------
+  # Job 1: Run Smoke Tests
+  # --------------------------------------------------
+  smoke-tests:
+    name: Smoke Tests (Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Create test results directories
+        run: |
+          mkdir -p test-results/screenshots
+          mkdir -p test-results/videos
+          mkdir -p tests/reports/html
+          mkdir -p tests/reports/junit
+          mkdir -p tests/reports/json
+
+      - name: Run smoke tests (P0)
+        id: run-smoke-tests
+        run: |
+          npx playwright test \
+            --project=chromium \
+            --grep @P0 \
+            --reporter=html,junit,list,json
+        continue-on-error: true
+        env:
+          CI: 'true'
+          ENV: ${{ env.TEST_ENV }}
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-html-report
+          path: tests/reports/html/
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-junit-report
+          path: tests/reports/junit/
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload test results (screenshots, videos)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-results
+          path: test-results/
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Check test outcome
+        id: check-outcome
+        run: |
+          if [ "${{ steps.run-smoke-tests.outcome }}" == "failure" ]; then
+            echo "Smoke tests failed!"
+            exit 1
+          else
+            echo "All smoke tests passed!"
+          fi

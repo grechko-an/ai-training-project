@@ -1,0 +1,62 @@
+{
+  "name": "ai-training-project",
+  "version": "1.0.0",
+  "description": "AI Training Project with comprehensive QA automation infrastructure",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:e2e": "playwright test --grep @e2e",
+    "test:api": "playwright test --grep @api",
+    "test:smoke": "playwright test --grep @P0",
+    "test:regression": "playwright test --grep @regression",
+    "test:ui": "playwright test --grep @ui",
+    "test:headless": "playwright test --headed=false",
+    "test:chrome": "playwright test --project=chromium",
+    "test:firefox": "playwright test --project=firefox",
+    "test:webkit": "playwright test --project=webkit",
+    "test:debug": "playwright test --debug",
+    "test:report": "playwright test --reporter=html,allure-playwright",
+    "test:parallel": "playwright test --workers=4",
+    "allure:generate": "allure generate ./tests/reports/allure-results --clean -o ./tests/reports/allure-report",
+    "allure:open": "allure open ./tests/reports/allure-report",
+    "allure:serve": "allure serve ./tests/reports/allure-results",
+    "playwright:install": "playwright install",
+    "playwright:show-report": "playwright show-report",
+    "lint": "eslint . --ext .ts",
+    "build": "tsc",
+    "clean": "rm -rf ./tests/reports ./playwright-report ./test-results"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/grechko-an/ai-training-project.git"
+  },
+  "keywords": [
+    "playwright",
+    "typescript",
+    "automation",
+    "testing",
+    "e2e",
+    "api"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/grechko-an/ai-training-project/issues"
+  },
+  "homepage": "https://github.com/grechko-an/ai-training-project#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@types/jest": "^30.0.0",
+    "@types/joi": "^17.2.2",
+    "@types/node": "^25.9.1",
+    "allure-playwright": "^3.9.0",
+    "axios": "^1.16.1",
+    "dotenv": "^17.4.2",
+    "joi": "^18.2.1",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

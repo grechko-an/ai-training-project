@@ -1,0 +1,10 @@
+name: "Allure TestOps MCP Server"
+version: "0.0.1"
+schema: "v1"
+mcpServers:
+  - name: "allure testops"
+    command: "npx"
+    args:
+      - "-y"
+      - "@iflow-mcp/armanayvazyan-allure-testops-mcp"
+
